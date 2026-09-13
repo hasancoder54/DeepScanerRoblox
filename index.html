@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="tr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roblox OSINT & Deep Inspector v3</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- JetBrains Mono Font -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '#00ff66',
+                        branddark: '#00b347',
+                        cyberpurple: '#8b5cf6',
+                        cyberblue: '#06b6d4',
+                        darkbg: '#08090c',
+                        cardbg: '#0f1117',
+                        cardborder: '#1f2433'
+                    },
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: 0, transform: 'translateY(6px)' },
+                            '100%': { opacity: 1, transform: 'translateY(0)' }
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-in-out'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: #08090c;
+            color: #e2e8f0;
+            background-image: radial-gradient(rgba(31, 36, 51, 0.4) 1px, transparent 0);
+            background-size: 24px 24px;
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #08090c; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1f2433; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #00ff66; }
+        .glass-panel {
+            background: rgba(15, 17, 23, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid #1f2433;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-3 md:p-6 flex flex-col gap-6 max-w-[1700px] mx-auto pb-10">
+
+    <!-- HEADER & SEARCH BAR -->
+    <header class="glass-panel p-5 rounded-2xl shadow-2xl flex flex-col lg:flex-row justify-between items-center gap-4 relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-2 h-full bg-brand"></div>
+        <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-xl bg-brand/10 border border-brand/40 flex items-center justify-center text-brand text-xl shadow-[0_0_15px_rgba(0,255,102,0.3)]">
+                <i class="fa-solid fa-bug animate-pulse"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-wider text-white flex items-center gap-2">
+                    ROBLOX <span class="text-brand">DEEP_SCAN</span> <span class="text-[10px] bg-brand/20 text-brand px-2 py-0.5 rounded border border-brand/40">v3.0 PRO</span>
+                </h1>
+                <p class="text-xs text-gray-400">Gelişmiş Siber İstihbarat & Profil Analiz Platformu</p>
+            </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row w-full lg:w-auto gap-2.5">
+            <div class="relative w-full sm:w-72">
+                <i class="fa-solid fa-user text-gray-500 absolute left-3.5 top-3 text-xs"></i>
+                <input type="text" id="targetInput" placeholder="Kullanıcı Adı veya ID..." class="w-full bg-darkbg border border-cardborder text-xs pl-9 pr-3 py-2.5 rounded-xl focus:outline-none focus:border-brand text-white placeholder-gray-500 transition-all">
+            </div>
+            <div class="relative w-full sm:w-52">
+                <i class="fa-solid fa-key text-gray-500 absolute left-3.5 top-3 text-xs"></i>
+                <input type="password" id="cookieInput" placeholder=".ROBLOSECURITY (Opsiyonel)" class="w-full bg-darkbg border border-cardborder text-xs pl-9 pr-3 py-2.5 rounded-xl focus:outline-none focus:border-brand text-white placeholder-gray-500 transition-all">
+            </div>
+            <button id="btnInspect" onclick="inspectTarget()" class="bg-brand hover:bg-emerald-400 text-black font-bold text-xs px-6 py-2.5 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,255,102,0.4)] shrink-0">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>ANALİZ ET</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- LOADING STATUS -->
+    <div id="loader" class="hidden glass-panel rounded-xl p-4 text-center text-xs text-brand border border-brand/30 animate-pulse flex items-center justify-center gap-3">
+        <i class="fa-solid fa-circle-notch fa-spin text-lg"></i>
+        <span>RoProxy & Roblox API ağı üzerinden derin OSINT taraması yürütülüyor...</span>
+    </div>
+
+    <!-- MAIN DASHBOARD -->
+    <div id="dashboard" class="hidden grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in">
+
+        <!-- LEFT COLUMN: PROFILE CARD & METRICS -->
+        <div class="lg:col-span-4 flex flex-col gap-6">
+            
+            <!-- AVATAR & BASIC PROFILE -->
+            <div class="glass-panel p-6 rounded-2xl flex flex-col items-center text-center relative overflow-hidden">
+                <!-- PRESENCE BADGE -->
+                <div id="statusBadge" class="absolute top-4 right-4 text-[10px] font-bold px-3 py-1 rounded-full border border-cardborder bg-darkbg text-gray-400 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-gray-500"></span> Çevrimdışı
+                </div>
+
+                <!-- IMAGE DISPLAY SWITCH -->
+                <div class="relative group my-3">
+                    <div class="w-40 h-40 bg-darkbg border border-cardborder rounded-2xl overflow-hidden flex items-center justify-center shadow-xl p-1 relative">
+                        <img id="userAvatarMain" src="" alt="Avatar" class="w-full h-full object-contain transition-all duration-300 group-hover:scale-105">
+                        <div id="verifiedBadgeIcon" class="hidden absolute bottom-2 right-2 bg-blue-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shadow-lg" title="Doğrulanmış Rozet">
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+                    </div>
+                    <div class="flex justify-center gap-2 mt-2">
+                        <button onclick="toggleAvatarView('headshot')" id="btnHeadshot" class="text-[10px] bg-brand text-black px-2.5 py-1 rounded-lg font-bold">2D Yüz</button>
+                        <button onclick="toggleAvatarView('full')" id="btnFullBody" class="text-[10px] bg-darkbg border border-cardborder text-gray-400 hover:text-white px-2.5 py-1 rounded-lg">Tam Vücut (2B)</button>
+                    </div>
+                </div>
+
+                <h2 id="userDisplayName" class="text-xl font-bold text-white mt-1 flex items-center gap-2">---</h2>
+                <p id="userName" class="text-xs text-brand mb-1">@---</p>
+                <p id="userId" class="text-[11px] text-gray-500 mb-4 font-mono">ID: ---</p>
+
+                <!-- QUICK METRICS GRID -->
+                <div class="grid grid-cols-3 w-full border-y border-cardborder py-3 my-2 text-center text-xs">
+                    <div>
+                        <span class="block text-gray-500 text-[10px] uppercase">Arkadaş</span>
+                        <b id="statFriends" class="text-white text-sm">0</b>
+                    </div>
+                    <div class="border-x border-cardborder">
+                        <span class="block text-gray-500 text-[10px] uppercase">Takipçi</span>
+                        <b id="statFollowers" class="text-white text-sm">0</b>
+                    </div>
+                    <div>
+                        <span class="block text-gray-500 text-[10px] uppercase">Takip Edilen</span>
+                        <b id="statFollowing" class="text-white text-sm">0</b>
+                    </div>
+                </div>
+
+                <!-- OSINT INFO LIST -->
+                <div class="w-full pt-2 text-left text-xs space-y-2.5">
+                    <p class="flex justify-between items-center"><span class="text-gray-500"><i class="fa-regular fa-calendar text-brand/70 mr-1.5"></i>Kayıt Tarihi:</span> <span id="userCreated" class="text-gray-200 font-semibold">---</span></p>
+                    <p class="flex justify-between items-center"><span class="text-gray-500"><i class="fa-solid fa-hourglass-half text-cyberblue mr-1.5"></i>Hesap Yaşı:</span> <span id="userAccountAge" class="text-gray-200 font-semibold">--- Gün</span></p>
+                    <p class="flex justify-between items-center"><span class="text-gray-500"><i class="fa-solid fa-gamepad text-cyberpurple mr-1.5"></i>Oynadığı Yer:</span> <span id="userLastLocation" class="text-gray-200 truncate max-w-[160px]">Yok</span></p>
+                    <p class="flex justify-between items-center"><span class="text-gray-500"><i class="fa-solid fa-gem text-amber-400 mr-1.5"></i>Toplanan RAP:</span> <span id="userRAP" class="text-amber-400 font-bold">0 R$</span></p>
+                </div>
+
+                <!-- PAST USERNAMES -->
+                <div class="w-full border-t border-cardborder pt-3 mt-3 text-left">
+                    <span class="text-[11px] text-gray-400 block mb-1.5 font-bold flex items-center gap-1.5"><i class="fa-solid fa-clock-rotate-left text-brand"></i> Eski Kullanıcı Adları</span>
+                    <div id="pastUsernamesList" class="flex flex-wrap gap-1 max-h-16 overflow-y-auto custom-scrollbar">
+                        <span class="text-[10px] text-gray-600">Eski isim bulunamadı.</span>
+                    </div>
+                </div>
+
+                <!-- BIO -->
+                <div class="w-full border-t border-cardborder pt-3 mt-3 text-left">
+                    <span class="text-[11px] text-gray-400 block mb-1.5 font-bold flex items-center gap-1.5"><i class="fa-solid fa-quote-left text-brand"></i> Biyografi / Hakkında</span>
+                    <p id="userBio" class="text-xs text-gray-300 bg-darkbg p-3 rounded-xl border border-cardborder h-24 overflow-y-auto custom-scrollbar whitespace-pre-line">---</p>
+                </div>
+
+                <!-- EXTERNAL OSINT LINKS -->
+                <div class="w-full border-t border-cardborder pt-3 mt-3">
+                    <span class="text-[11px] text-gray-400 block mb-2 font-bold text-left flex items-center gap-1.5"><i class="fa-solid fa-arrow-up-right-from-square text-brand"></i> OSINT Dış Bağlantılar</span>
+                    <div class="grid grid-cols-2 gap-2 text-[11px]">
+                        <a id="linkRolimons" href="#" target="_blank" class="bg-darkbg hover:border-amber-500/50 border border-cardborder p-2 rounded-xl text-gray-300 hover:text-amber-400 transition-all flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-chart-line text-amber-500"></i> Rolimons
+                        </a>
+                        <a id="linkRoblox" href="#" target="_blank" class="bg-darkbg hover:border-brand/50 border border-cardborder p-2 rounded-xl text-gray-300 hover:text-brand transition-all flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-link text-brand"></i> Resmi Profil
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN: TABS CONTAINER -->
+        <div class="lg:col-span-8 glass-panel rounded-2xl p-6 flex flex-col gap-6">
+            
+            <!-- TABS NAVIGATION BAR -->
+            <div class="flex border-b border-cardborder gap-2 pb-3 overflow-x-auto custom-scrollbar">
+                <button onclick="switchTab('overviewTab')" id="btn-overviewTab" class="tab-btn text-xs font-bold px-4 py-2.5 rounded-xl bg-brand text-black shadow-lg flex items-center gap-2 shrink-0">
+                    <i class="fa-solid fa-chart-pie"></i> Metrik Özet
+                </button>
+                <button onclick="switchTab('friendsTab')" id="btn-friendsTab" class="tab-btn text-xs font-bold px-4 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-darkbg flex items-center gap-2 shrink-0">
+                    <i class="fa-solid fa-users"></i> Arkadaşlar
+                </button>
+                <button onclick="switchTab('groupsTab')" id="btn-groupsTab" class="tab-btn text-xs font-bold px-4 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-darkbg flex items-center gap-2 shrink-0">
+                    <i class="fa-solid fa-shield-halved"></i> Gruplar
+                </button>
+                <button onclick="switchTab('gamesTab')" id="btn-gamesTab" class="tab-btn text-xs font-bold px-4 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-darkbg flex items-center gap-2 shrink-0">
+                    <i class="fa-solid fa-code"></i> Oyunlar
+                </button>
+                <button onclick="switchTab('inventoryTab')" id="btn-inventoryTab" class="tab-btn text-xs font-bold px-4 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-darkbg flex items-center gap-2 shrink-0">
+                    <i class="fa-solid fa-shirt"></i> Envanter
+                </button>
+                <button onclick="switchTab('badgesTab')" id="btn-badgesTab" class="tab-btn text-xs font-bold px-4 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-darkbg flex items-center gap-2 shrink-0">
+                    <i class="fa-solid fa-certificate"></i> Rozetler
+                </button>
+            </div>
+
+            <!-- TAB 1: OVERVIEW METRICS -->
+            <div id="overviewTab" class="tab-content flex flex-col gap-5 animate-fade-in">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-darkbg border border-cardborder p-4 rounded-xl flex flex-col justify-between">
+                        <span class="text-xs text-gray-400 flex items-center gap-1.5"><i class="fa-solid fa-eye text-brand"></i> Toplam Oyun Ziyareti</span>
+                        <b id="ovTotalVisits" class="text-2xl text-white font-bold mt-2">0</b>
+                        <span class="text-[10px] text-gray-500 mt-1">Ürettiği tüm oyunların toplamı</span>
+                    </div>
+                    <div class="bg-darkbg border border-cardborder p-4 rounded-xl flex flex-col justify-between">
+                        <span class="text-xs text-gray-400 flex items-center gap-1.5"><i class="fa-solid fa-gem text-amber-400"></i> Toplam RAP Değeri</span>
+                        <b id="ovTotalRAP" class="text-2xl text-amber-400 font-bold mt-2">0 R$</b>
+                        <span class="text-[10px] text-gray-500 mt-1">Sınırlı (Limited) eşya değeri</span>
+                    </div>
+                    <div class="bg-darkbg border border-cardborder p-4 rounded-xl flex flex-col justify-between">
+                        <span class="text-xs text-gray-400 flex items-center gap-1.5"><i class="fa-solid fa-shirt text-cyberpurple"></i> Kayıtlı Kıyafet Sayısı</span>
+                        <b id="ovOutfitCount" class="text-2xl text-cyberpurple font-bold mt-2">0</b>
+                        <span class="text-[10px] text-gray-500 mt-1">Oluşturulan outfit sayısı</span>
+                    </div>
+                </div>
+
+                <!-- PRIMARY GROUP HIGHLIGHT -->
+                <div id="primaryGroupCard" class="bg-darkbg border border-cardborder p-4 rounded-xl flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-cardbg border border-cardborder flex items-center justify-center text-brand">
+                            <i class="fa-solid fa-crown text-amber-400"></i>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-gray-500 block uppercase font-bold">Birincil Grup</span>
+                            <p id="primaryGroupName" class="text-sm font-bold text-white">Atanmadı</p>
+                        </div>
+                    </div>
+                    <span id="primaryGroupRole" class="text-xs text-brand bg-brand/10 border border-brand/30 px-3 py-1 rounded-lg">---</span>
+                </div>
+
+                <!-- JSON EXPORT / COPY BUTTONS -->
+                <div class="flex justify-between items-center bg-darkbg border border-cardborder p-4 rounded-xl">
+                    <div>
+                        <h4 class="text-xs font-bold text-white">Ham OSINT Verisini Dışa Aktar</h4>
+                        <p class="text-[10px] text-gray-500">Tüm taranmış veriyi JSON formatında kopyalayın</p>
+                    </div>
+                    <button onclick="copyRawJSON()" class="bg-cardbg hover:bg-cardborder text-xs text-brand border border-brand/30 font-bold px-4 py-2 rounded-xl transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-copy"></i> JSON Kopyala
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 2: FRIENDS -->
+            <div id="friendsTab" class="tab-content hidden flex flex-col gap-4 animate-fade-in">
+                <div class="flex justify-between items-center gap-2">
+                    <div class="relative w-full sm:w-64">
+                        <i class="fa-solid fa-search text-gray-500 absolute left-3 top-2.5 text-xs"></i>
+                        <input type="text" id="friendSearchInput" onkeyup="filterFriends()" placeholder="Arkadaş adıyla ara..." class="bg-darkbg border border-cardborder text-xs pl-8 pr-3 py-2 rounded-xl w-full focus:outline-none focus:border-brand text-white">
+                    </div>
+                    <span id="friendCounterText" class="text-xs text-gray-400 shrink-0">0 Arkadaş</span>
+                </div>
+                <div id="friendsContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[520px] overflow-y-auto custom-scrollbar p-1">
+                </div>
+            </div>
+
+            <!-- TAB 3: GROUPS -->
+            <div id="groupsTab" class="tab-content hidden flex flex-col gap-4 animate-fade-in">
+                <div id="groupsContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[520px] overflow-y-auto custom-scrollbar p-1">
+                </div>
+            </div>
+
+            <!-- TAB 4: GAMES -->
+            <div id="gamesTab" class="tab-content hidden flex flex-col gap-4 animate-fade-in">
+                <div class="flex gap-2 border-b border-cardborder pb-2">
+                    <button onclick="switchGameSubTab('produced')" id="btnGameProduced" class="text-xs font-bold text-brand border-b-2 border-brand pb-1 px-2">Üretilen Oyunlar</button>
+                    <button onclick="switchGameSubTab('favorites')" id="btnGameFavorites" class="text-xs font-bold text-gray-500 hover:text-white pb-1 px-2">Favori Oyunlar</button>
+                </div>
+                <div id="gamesContainer" class="grid grid-cols-1 gap-4 max-h-[480px] overflow-y-auto custom-scrollbar p-1">
+                </div>
+            </div>
+
+            <!-- TAB 5: INVENTORY & ASSETS -->
+            <div id="inventoryTab" class="tab-content hidden flex flex-col gap-4 animate-fade-in">
+                <h3 class="text-xs font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-shirt text-brand"></i> Giyilen Eşyalar & Aksesuarlar
+                </h3>
+                <div id="clothingList" class="flex flex-wrap gap-2 max-h-48 overflow-y-auto custom-scrollbar p-2 bg-darkbg border border-cardborder rounded-xl">
+                </div>
+
+                <h3 class="text-xs font-bold text-white flex items-center gap-2 mt-2">
+                    <i class="fa-solid fa-gem text-amber-400"></i> Sınırlı Eşyalar (Collectibles / Limiteds)
+                </h3>
+                <div id="collectiblesList" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar p-1">
+                </div>
+            </div>
+
+            <!-- TAB 6: BADGES -->
+            <div id="badgesTab" class="tab-content hidden flex flex-col gap-4 animate-fade-in">
+                <div id="badgesContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[520px] overflow-y-auto custom-scrollbar p-1">
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        let currentFriendsData = [];
+        let rawScannedData = null;
+        let activeAvatarView = 'headshot';
+
+        function proxiedUrl(url) {
+            if(!url) return '';
+            if(url.startsWith('/api/proxy-image')) return url;
+            return '/api/proxy-image?url=' + encodeURIComponent(url);
+        }
+
+        function copyRawJSON() {
+            if(!rawScannedData) return;
+            navigator.clipboard.writeText(JSON.stringify(rawScannedData, null, 2));
+            alert('Ham JSON verisi panoya kopyalandı.');
+        }
+
+        async function inspectTarget() {
+            const input = document.getElementById('targetInput').value.trim();
+            const cookie = document.getElementById('cookieInput').value.trim();
+
+            if(!input) {
+                alert('Lütfen kullanıcı adı veya ID girin.');
+                return;
+            }
+
+            document.getElementById('loader').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        target: input,
+                        is_id: !isNaN(input),
+                        cookie: cookie
+                    })
+                });
+
+                const data = await response.json();
+
+                if(data.error) {
+                    alert(data.error);
+                    document.getElementById('loader').classList.add('hidden');
+                    return;
+                }
+
+                rawScannedData = data;
+                renderAllData(data);
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                document.getElementById('dashboard').classList.add('grid');
+
+            } catch(e) {
+                alert('Sunucuyla bağlantı kurulurken hata oluştu.');
+                document.getElementById('loader').classList.add('hidden');
+            }
+        }
+
+        function toggleAvatarView(viewType) {
+            activeAvatarView = viewType;
+            const prof = rawScannedData ? rawScannedData.profile : {};
+            const img = document.getElementById('userAvatarMain');
+            const btnH = document.getElementById('btnHeadshot');
+            const btnF = document.getElementById('btnFullBody');
+
+            if(viewType === 'full') {
+                img.src = proxiedUrl(prof.fullBody || prof.headshot);
+                btnF.className = "text-[10px] bg-brand text-black px-2.5 py-1 rounded-lg font-bold";
+                btnH.className = "text-[10px] bg-darkbg border border-cardborder text-gray-400 hover:text-white px-2.5 py-1 rounded-lg";
+            } else {
+                img.src = proxiedUrl(prof.headshot);
+                btnH.className = "text-[10px] bg-brand text-black px-2.5 py-1 rounded-lg font-bold";
+                btnF.className = "text-[10px] bg-darkbg border border-cardborder text-gray-400 hover:text-white px-2.5 py-1 rounded-lg";
+            }
+        }
+
+        function renderAllData(data) {
+            const prof = data.profile || {};
+            const soc = data.social || {};
+            const col = data.collectibles || {};
+
+            document.getElementById('userName').innerText = `@${prof.username || 'Bilinmiyor'}`;
+            document.getElementById('userDisplayName').innerText = prof.displayName || '---';
+            document.getElementById('userId').innerText = `ID: ${data.id}`;
+            document.getElementById('userCreated').innerText = prof.created || '---';
+            document.getElementById('userAccountAge').innerText = `${prof.accountAgeDays || 0} Gün (${prof.accountAgeYears || 0} Yıl)`;
+            document.getElementById('userLastLocation').innerText = prof.lastLocation || 'Yok';
+            document.getElementById('userBio').innerText = prof.description || 'Açıklama yok.';
+            document.getElementById('userRAP').innerText = `${(col.total_rap || 0).toLocaleString()} R$`;
+
+            toggleAvatarView('headshot');
+
+            const verBadge = document.getElementById('verifiedBadgeIcon');
+            if(prof.hasVerifiedBadge) verBadge.classList.remove('hidden');
+            else verBadge.classList.add('hidden');
+
+            document.getElementById('linkRolimons').href = data.external_links.rolimons;
+            document.getElementById('linkRoblox').href = data.external_links.roblox;
+
+            document.getElementById('ovTotalVisits').innerText = (prof.totalGameVisits || 0).toLocaleString();
+            document.getElementById('ovTotalRAP').innerText = `${(col.total_rap || 0).toLocaleString()} R$`;
+            document.getElementById('ovOutfitCount').innerText = (data.outfits || []).length;
+
+            const pg = data.primary_group;
+            if(pg) {
+                document.getElementById('primaryGroupName').innerText = pg.name;
+                document.getElementById('primaryGroupRole').innerText = `${pg.role} (Rütbe: ${pg.rank})`;
+            } else {
+                document.getElementById('primaryGroupName').innerText = "Belirtilmedi";
+                document.getElementById('primaryGroupRole').innerText = "---";
+            }
+
+            document.getElementById('statFriends').innerText = soc.friends_count || 0;
+            document.getElementById('statFollowers').innerText = (soc.followers_count || 0).toLocaleString();
+            document.getElementById('statFollowing').innerText = (soc.following_count || 0).toLocaleString();
+            document.getElementById('friendCounterText').innerText = `${soc.friends_count || 0} Arkadaş`;
+
+            const badge = document.getElementById('statusBadge');
+            badge.innerHTML = `<span class="w-2 h-2 rounded-full ${prof.presenceTypeRaw > 0 ? 'bg-brand' : 'bg-gray-500'}"></span> ${prof.presence || 'Çevrimdışı'}`;
+
+            const pastNamesContainer = document.getElementById('pastUsernamesList');
+            pastNamesContainer.innerHTML = '';
+            if(prof.pastUsernames && prof.pastUsernames.length > 0) {
+                prof.pastUsernames.forEach(name => {
+                    const span = document.createElement('span');
+                    span.className = "text-[10px] bg-darkbg border border-cardborder px-2 py-0.5 rounded-lg text-gray-300 font-mono";
+                    span.innerText = name;
+                    pastNamesContainer.appendChild(span);
+                });
+            } else {
+                pastNamesContainer.innerHTML = `<span class="text-[10px] text-gray-600">Eski isim yok.</span>`;
+            }
+
+            const clothingContainer = document.getElementById('clothingList');
+            clothingContainer.innerHTML = '';
+            if(data.clothing_worn && data.clothing_worn.length > 0) {
+                data.clothing_worn.forEach(item => {
+                    const a = document.createElement('a');
+                    a.href = `https://www.roblox.com/catalog/${item.id}`;
+                    a.target = "_blank";
+                    a.className = "text-[10px] bg-cardbg hover:bg-cardborder border border-cardborder hover:border-brand/40 px-2.5 py-1 rounded-lg text-gray-300 hover:text-brand transition-all flex items-center gap-1.5";
+                    a.innerHTML = `<i class="fa-solid fa-tag text-brand text-[9px]"></i> ${item.name} <span class="text-gray-500">(${item.type})</span>`;
+                    clothingContainer.appendChild(a);
+                });
+            } else {
+                clothingContainer.innerHTML = `<span class="text-xs text-gray-500">Giyilen eşya bulunamadı.</span>`;
+            }
+
+            const colContainer = document.getElementById('collectiblesList');
+            colContainer.innerHTML = '';
+            if(col.items && col.items.length > 0) {
+                col.items.forEach(c => {
+                    const card = document.createElement('div');
+                    card.className = "bg-darkbg border border-cardborder p-2.5 rounded-xl flex justify-between items-center text-xs";
+                    card.innerHTML = `
+                        <div class="truncate">
+                            <b class="text-white block truncate">${c.name}</b>
+                            <span class="text-[10px] text-gray-500">Seri: #${c.serial}</span>
+                        </div>
+                        <span class="text-amber-400 font-bold shrink-0 ml-2">${c.rap.toLocaleString()} R$</span>
+                    `;
+                    colContainer.appendChild(card);
+                });
+            } else {
+                colContainer.innerHTML = `<span class="text-xs text-gray-500 col-span-2">Sınırlı (Limited) eşya bulunamadı.</span>`;
+            }
+
+            currentFriendsData = soc.friends_list || [];
+            renderFriends(currentFriendsData);
+
+            renderGroups(data.groups || []);
+            renderGames(data.games || []);
+            renderBadges(data.badges || []);
+        }
+
+        function renderFriends(friends) {
+            const container = document.getElementById('friendsContainer');
+            container.innerHTML = '';
+            if(!friends || friends.length === 0) {
+                container.innerHTML = `<p class="text-xs text-gray-500 py-4 col-span-3">Arkadaş listesi gizli veya boş.</p>`;
+                return;
+            }
+            friends.forEach(f => {
+                const card = document.createElement('div');
+                card.className = "bg-darkbg border border-cardborder hover:border-brand/40 p-3 rounded-xl flex items-center gap-3 transition-all";
+                card.innerHTML = `
+                    <img src="${proxiedUrl(f.headshot)}" class="w-11 h-11 rounded-xl bg-cardbg border border-cardborder shrink-0 object-cover">
+                    <div class="overflow-hidden w-full">
+                        <p class="text-xs font-bold text-white truncate flex items-center gap-1">
+                            ${f.displayName}
+                            ${f.hasVerifiedBadge ? '<i class="fa-solid fa-check-circle text-blue-400 text-[10px]"></i>' : ''}
+                        </p>
+                        <p class="text-[10px] text-gray-500 truncate">@${f.name}</p>
+                        <button onclick="document.getElementById('targetInput').value='${f.id}'; inspectTarget();" class="text-[10px] text-brand hover:underline mt-0.5 flex items-center gap-1">
+                            <span>Tarat</span> <i class="fa-solid fa-arrow-right text-[8px]"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function filterFriends() {
+            const q = document.getElementById('friendSearchInput').value.toLowerCase();
+            const filtered = currentFriendsData.filter(f => f.name.toLowerCase().includes(q) || f.displayName.toLowerCase().includes(q));
+            renderFriends(filtered);
+        }
+
+        function renderGroups(groups) {
+            const container = document.getElementById('groupsContainer');
+            container.innerHTML = '';
+            if(!groups || groups.length === 0) {
+                container.innerHTML = `<p class="text-xs text-gray-500 py-4 col-span-2">Grup üyeliği bulunamadı.</p>`;
+                return;
+            }
+            groups.forEach(g => {
+                const card = document.createElement('div');
+                card.className = "bg-darkbg border border-cardborder p-3.5 rounded-xl flex items-center gap-3.5";
+                card.innerHTML = `
+                    <img src="${proxiedUrl(g.icon)}" class="w-12 h-12 rounded-xl bg-cardbg border border-cardborder shrink-0 object-cover">
+                    <div class="overflow-hidden w-full">
+                        <div class="flex justify-between items-start gap-1">
+                            <p class="text-xs font-bold text-white truncate">${g.name}</p>
+                            <span class="text-[9px] bg-brand/10 text-brand px-2 py-0.5 rounded-md border border-brand/30 shrink-0">${g.role}</span>
+                        </div>
+                        <p class="text-[10px] text-gray-500 mt-1"><i class="fa-solid fa-users text-gray-600 mr-1"></i>Üye: ${g.memberCount.toLocaleString()} | Rütbe: ${g.rank}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function switchGameSubTab(type) {
+            const btnP = document.getElementById('btnGameProduced');
+            const btnF = document.getElementById('btnGameFavorites');
+            if(type === 'produced') {
+                btnP.className = "text-xs font-bold text-brand border-b-2 border-brand pb-1 px-2";
+                btnF.className = "text-xs font-bold text-gray-500 hover:text-white pb-1 px-2";
+                renderGames(rawScannedData ? rawScannedData.games : []);
+            } else {
+                btnF.className = "text-xs font-bold text-brand border-b-2 border-brand pb-1 px-2";
+                btnP.className = "text-xs font-bold text-gray-500 hover:text-white pb-1 px-2";
+                renderGames(rawScannedData ? rawScannedData.favorites : []);
+            }
+        }
+
+        function renderGames(games) {
+            const container = document.getElementById('gamesContainer');
+            container.innerHTML = '';
+            if(!games || games.length === 0) {
+                container.innerHTML = `<p class="text-xs text-gray-500 py-4">Oyun kaydı bulunamadı.</p>`;
+                return;
+            }
+            games.forEach(g => {
+                const card = document.createElement('div');
+                card.className = "bg-darkbg border border-cardborder p-4 rounded-xl flex flex-col gap-3";
+                
+                let gamepassesHTML = '';
+                if(g.gamepasses && g.gamepasses.length > 0) {
+                    gamepassesHTML = `
+                        <div class="border-t border-cardborder pt-2 mt-1">
+                            <span class="text-[10px] text-gray-500 block mb-1">Gamepass'ler (${g.gamepasses.length}):</span>
+                            <div class="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto custom-scrollbar">
+                                ${g.gamepasses.map(gp => `<span class="text-[10px] bg-cardbg border border-cardborder px-2 py-0.5 rounded text-amber-400 font-bold">${gp.name} (${gp.price} R$)</span>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div class="flex gap-3 items-center">
+                        <img src="${proxiedUrl(g.icon)}" class="w-14 h-14 rounded-xl border border-cardborder bg-cardbg object-cover shrink-0">
+                        <div class="overflow-hidden">
+                            <h4 class="text-sm font-bold text-white truncate">${g.name}</h4>
+                            <div class="flex gap-3 text-[10px] text-gray-400 mt-1">
+                                <span><i class="fa-solid fa-eye text-brand mr-1"></i>${g.visits.toLocaleString()} Ziyaret</span>
+                                <span><i class="fa-solid fa-user-group text-cyberblue mr-1"></i>${g.playing.toLocaleString()} Aktif</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 bg-cardbg p-3 rounded-xl border border-cardborder text-ellipsis overflow-hidden">${g.description || 'Açıklama yok.'}</p>
+                    ${gamepassesHTML}
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderBadges(badges) {
+            const container = document.getElementById('badgesContainer');
+            container.innerHTML = '';
+            if(!badges || badges.length === 0) {
+                container.innerHTML = `<p class="text-xs text-gray-500 py-4 col-span-2">Rozet bulunamadı.</p>`;
+                return;
+            }
+            badges.forEach(b => {
+                const card = document.createElement('div');
+                card.className = "bg-darkbg border border-cardborder p-3 rounded-xl flex justify-between items-center text-xs";
+                card.innerHTML = `
+                    <div class="truncate mr-2">
+                        <span class="font-bold text-white block truncate">${b.name}</span>
+                        ${b.description ? `<span class="text-[10px] text-gray-500 truncate block">${b.description}</span>` : ''}
+                    </div>
+                    <span class="text-[9px] text-brand border border-brand/30 bg-brand/10 px-2.5 py-1 rounded-lg shrink-0">${b.type}</span>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.className = "tab-btn text-xs font-bold px-4 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-darkbg flex items-center gap-2 shrink-0";
+            });
+            document.getElementById(tabId).classList.remove('hidden');
+            const btn = document.getElementById(`btn-${tabId}`);
+            btn.className = "tab-btn text-xs font-bold px-4 py-2.5 rounded-xl bg-brand text-black shadow-lg flex items-center gap-2 shrink-0";
+        }
+    </script>
+</body>
+</html>
